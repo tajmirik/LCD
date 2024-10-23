@@ -6,78 +6,90 @@
 #define D6(x) (x==1 ? (HAL_GPIO_WritePin(D6_GPIO_Port,D6_Pin,GPIO_PIN_SET)): (HAL_GPIO_WritePin(D6_GPIO_Port,D6_Pin,GPIO_PIN_RESET)))
 #define D7(x) (x==1 ? (HAL_GPIO_WritePin(D7_GPIO_Port,D7_Pin,GPIO_PIN_SET)): (HAL_GPIO_WritePin(D7_GPIO_Port,D7_Pin,GPIO_PIN_RESET)))
 /* USER CODE BEGIN 4 */
+////////LCD//////////////////////////
 void lcd_init(void)
 {
-	HAL_Delay(50);
-	lcd_cmd(0x33);
-	HAL_Delay(15);
-	lcd_cmd(0x32);
-	HAL_Delay(15);
-	lcd_cmd(0x28);
-	HAL_Delay(15);
-	lcd_cmd(0x0c);
-	HAL_Delay(15);
-	lcd_cmd(0x06);
-	HAL_Delay(150);
-	lcd_cmd(0x01);
-	lcd_cmd(0x01);
-	lcd_cmd(0x0f);
-	HAL_Delay(15);
+    // Initial delay to allow the LCD to power up
+    HAL_Delay(40);
+    
+    // Set to 4-bit mode, send this command twice
+    lcd_cmd(0x03);
+    HAL_Delay(5);
+    lcd_cmd(0x03);
+    HAL_Delay(1);
+    lcd_cmd(0x03);
+    
+    // Finally, set 4-bit mode
+    lcd_cmd(0x02);
 
+    // Function Set: 4-bit mode, 2 lines, 5x7 font
+    lcd_cmd(0x28);
+
+    // Display ON/OFF control: display ON, cursor OFF, blink OFF
+    lcd_cmd(0x0C);
+
+    // Clear display
+    lcd_cmd(0x01);
+    HAL_Delay(2);
+
+    // Entry mode set: increment cursor, no display shift
+    lcd_cmd(0x06);
 }
+
 ///////////////////
 void lcd_cmd(uint8_t cmd)
 {
-	int8_t bit_spc[8],bit_cnt;
-	for(bit_cnt=0;bit_cnt<8;bit_cnt++)
-	{
-		bit_spc[bit_cnt]=(cmd>>bit_cnt) & 0X1;
-	}
-	RS(0);RW(0);EN(1);
-	HAL_Delay(5);
-	D7(bit_spc[7]);
-	D6(bit_spc[6]);
-	D5(bit_spc[5]);
-	D4(bit_spc[4]);
-	EN(0);
-	HAL_Delay(5);
-	EN(1);
-	HAL_Delay(5);
-	D7(bit_spc[3]);//3TH BIT
-	D6(bit_spc[2]);//2TH BIT
-	D5(bit_spc[1]);//1TH BIT
-	D4(bit_spc[0]);//0TH BIT
-	EN(0);
-	HAL_Delay(5);
+    // Send higher nibble (D7-D4)
+    D7((cmd >> 7 & 0x01));
+    D6((cmd >> 6 & 0x01));
+    D5((cmd >> 5 & 0x01));
+    D4((cmd >> 4 & 0x01));
+
+    RS(0);  // RS = 0 for command
+    EN(1);  // Enable pulse
+    HAL_Delay(1);
+    EN(0);
+    HAL_Delay(1);
+    
+    // Send lower nibble (D3-D0)
+    D7((cmd >> 3 & 0x01));
+    D6((cmd >> 2 & 0x01));
+    D5((cmd >> 1 & 0x01));
+    D4((cmd >> 0 & 0x01));
+
+    EN(1);  // Enable pulse
+    HAL_Delay(1);
+    EN(0);
+    HAL_Delay(1);
 }
+
 ///////////////////////
-void lcd_putchar(uint8_t data1)
+void lcd_putchar(uint8_t data)
 {
-	uint8_t bit_spc[8],bit_cnt;
-	for(bit_cnt=0;bit_cnt<8;bit_cnt++)
-	{
-		bit_spc[bit_cnt]=(data1>>bit_cnt) & 0X1;
-	}
-	RS(1);
-	EN(1);
-	HAL_Delay(5);
-	D7(bit_spc[7]);
-	D6(bit_spc[6]);
-	D5(bit_spc[5]);
-	D4(bit_spc[4]);
-	EN(0);
-	HAL_Delay(5);
-	for(bit_cnt=0;bit_cnt<100;bit_cnt++);
-	EN(1);
-	HAL_Delay(5);
-	D7(bit_spc[3]);
-	D6(bit_spc[2]);
-	D5(bit_spc[1]);
-	D4(bit_spc[0]);
-	EN(0);
-	HAL_Delay(5);
-	for(bit_cnt=0;bit_cnt<100;bit_cnt++);
+    // Send higher nibble
+    D7(((data >> 7) & 0x01));
+    D6(((data >> 6) & 0x01));
+    D5(((data >> 5) & 0x01));
+    D4(((data >> 4) & 0x01));
+
+    RS(1);  // RS = 1 for data
+    EN(1);  // Enable pulse
+    HAL_Delay(1);
+    EN(0);
+    HAL_Delay(1);
+    
+    // Send lower nibble
+    D7(((data >> 3) & 0x01));
+    D6(((data >> 2) & 0x01));
+    D5(((data >> 1) & 0x01));
+    D4(((data >> 0) & 0x01));
+
+    EN(1);  // Enable pulse
+    HAL_Delay(1);
+    EN(0);
+    HAL_Delay(1);
 }
+
 
 void lcd_puts(uint8_t *str)
 {
@@ -88,27 +100,18 @@ void lcd_puts(uint8_t *str)
 		cnt++;
 	}
 }
-void lcd_clear()
+void lcd_clear(void)
 {
-	lcd_cmd(0x01);
+    lcd_cmd(0x01);  // Clear display command
+    HAL_Delay(2);   // Wait for the command to execute
 }
-void lcd_gotoxy(uint8_t x,uint8_t y)
-{
-	uint8_t x_cnt;
 
-	if (y==0)
-	{
-		lcd_cmd(0x80);
-	}
-	else if (y==1)
-	{
-		lcd_cmd(0xc0);
-	}
-	for(x_cnt=0;x_cnt<x;x_cnt++)
-	{
-		lcd_C_shift(1);
-	}
+void lcd_gotoxy(uint8_t x, uint8_t y)
+{
+    uint8_t address[] = {0x00, 0x40, 0x10, 0x50}; // Line addresses for 16x4 LCD
+    lcd_cmd(0x80 | (x + address[y]));
 }
+
 
 void lcd_C_shift(uint8_t bit)
 {
@@ -120,4 +123,5 @@ void lcd_D_shift(uint8_t bit)
 	if (bit==0)lcd_cmd(0x18);
 	if (bit==1)lcd_cmd(0x1c);
 }
+//--------------------------------------------------------------------------------------------///
 /* USER CODE END 4 */
